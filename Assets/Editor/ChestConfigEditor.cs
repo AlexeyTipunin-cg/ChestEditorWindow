@@ -1,11 +1,16 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEditor;
+using UnityEngine;
 
 public class ChestConfigEditor : EditorWindow
 {
     private ChestConfig _chestConfig;
     private List<RewardToggleInfo> _rewardInfo;
     private int _rewardsCount = 0;
+
+    private Vector2 _scrollPos;
 
     [MenuItem("Window/Chest config")]
     private static void OpenWindow()
@@ -22,6 +27,20 @@ public class ChestConfigEditor : EditorWindow
 
     private void OnGUI()
     {
+        GUILayout.BeginHorizontal();
+        EditorGUILayout.BeginVertical("box", GUILayout.MaxWidth(150));
+
+        if (GUILayout.Button("Create Config"))
+        {
+            CreateAsset();
+        }
+
+
+        EditorGUILayout.EndVertical();
+
+        EditorGUILayout.Space(10, false);
+
+
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.LabelField("Количество наград:");
         _rewardsCount = EditorGUILayout.IntField(_rewardsCount);
@@ -37,6 +56,7 @@ public class ChestConfigEditor : EditorWindow
                 }
             }
 
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
             for (int i = 0; i < _rewardsCount; i++)
             {
                 _rewardInfo[i].isExpanded = EditorGUILayout.BeginFoldoutHeaderGroup(_rewardInfo[i].isExpanded, $"Награда {i + 1}");
@@ -53,7 +73,24 @@ public class ChestConfigEditor : EditorWindow
 
                 EditorGUILayout.Space(15);
             }
+
+            EditorGUILayout.EndScrollView();
         }
+
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private void CreateAsset()
+    {
+        var serObj = new SerializedObject(_chestConfig);
+        var prop = serObj.FindProperty("_rewards");
+
+        var type = typeof(ChestConfig);
+        FieldInfo fieldInfo = type.GetField("_rewards", BindingFlags.Instance | BindingFlags.NonPublic);
+        var value = fieldInfo.GetValue(_chestConfig);
+        fieldInfo.SetValue(_chestConfig, _rewardInfo.Take(_rewardsCount).Select(r => r.reward).ToArray());
+
+        AssetDatabase.CreateAsset(_chestConfig, "Assets/Chest_config.asset");
     }
 
     private void DrawItem(ChestConfig.RewardInfo reward)
@@ -93,13 +130,27 @@ public class ChestConfigEditor : EditorWindow
             case ChestConfig.RewardType.Chest:
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Chest config:");
+
+                if (reward.chest == null)
+                {
+                    GUI.color = Color.red;
+                }
+
                 reward.chest = (ChestConfig)EditorGUILayout.ObjectField(reward.chest, typeof(ChestConfig), false);
+                GUI.color = Color.white;
+
                 EditorGUILayout.EndHorizontal();
 
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("chestCount:");
-                reward.chestCount = EditorGUILayout.IntSlider(reward.chestCount, 1, 1000);
+                if (reward.chestCount == 0)
+                {
+                    GUI.color = Color.red;
+                }
+                reward.chestCount = EditorGUILayout.IntField(reward.chestCount);
+                GUI.color = Color.white;
                 EditorGUILayout.EndHorizontal();
+
                 break;
             default:
                 break;
