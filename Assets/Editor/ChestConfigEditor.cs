@@ -62,7 +62,7 @@ public class ChestConfigEditor : EditorWindow
 
     private void DrawLeftBar()
     {
-        EditorGUILayout.BeginVertical(GUI.skin.box,GUILayout.ExpandWidth(false));
+        EditorGUILayout.BeginVertical(GUI.skin.box, GUILayout.ExpandWidth(false));
 
         int index = _rewardInfo.FindIndex(r => r.hasErrors);
         if (index != -1 && index < _rewardsCount)
@@ -107,12 +107,10 @@ public class ChestConfigEditor : EditorWindow
             for (int i = 0; i < _rewardsCount; i++)
             {
                 var debugRewardInfo = _rewardInfo[i];
-                if (debugRewardInfo.hasErrors)
-                {
-                    GUI.contentColor = Color.red;
-                }
-                debugRewardInfo.isExpanded = EditorGUILayout.BeginFoldoutHeaderGroup(debugRewardInfo.isExpanded, $"Reward {i + 1}");
-                GUI.contentColor = Color.white;
+                ChangeColorIfError(debugRewardInfo.hasErrors,
+                    () => debugRewardInfo.isExpanded =
+                    EditorGUILayout.BeginFoldoutHeaderGroup(debugRewardInfo.isExpanded, $"Reward {i + 1}"));
+
 
                 if (debugRewardInfo.isExpanded)
                 {
