@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Inventory/Chest")]
+//[CreateAssetMenu(menuName = "Inventory/Chest")]
 public class ChestConfig : ScriptableObject
 {
 
