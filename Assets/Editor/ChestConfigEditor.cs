@@ -13,7 +13,7 @@ public class ChestConfigEditor : EditorWindow
 
     private string _configName;
     private int _rewardsCount = 0;
-    private List<RewardToggleInfo> _rewardInfo;
+    private List<RewardDebugInfo> _rewardInfo;
     private Vector2 _scrollPos;
 
     [MenuItem("Window/Chest config")]
@@ -26,12 +26,25 @@ public class ChestConfigEditor : EditorWindow
 
     private void OnEnable()
     {
-        _rewardInfo = new List<RewardToggleInfo>();
+        _rewardInfo = new List<RewardDebugInfo>();
     }
 
     private void OnGUI()
     {
+        CreateEmptyRewards();
+        FindErorrsInRewards();
         ShowGUI();
+    }
+
+    private void CreateEmptyRewards()
+    {
+        if (_rewardInfo.Count < _rewardsCount)
+        {
+            for (int i = _rewardInfo.Count; i <= _rewardsCount; i++)
+            {
+                _rewardInfo.Add(new RewardDebugInfo() { reward = new ChestConfig.RewardInfo(), isExpanded = true });
+            }
+        }
     }
 
     private void ShowGUI()
@@ -49,11 +62,26 @@ public class ChestConfigEditor : EditorWindow
 
     private void DrawLeftBar()
     {
-        EditorGUILayout.BeginVertical(GUI.skin.box, GUILayout.MaxWidth(150));
+        EditorGUILayout.BeginVertical(GUI.skin.box,GUILayout.ExpandWidth(false));
 
-        if (GUILayout.Button("Create Config"))
+        int index = _rewardInfo.FindIndex(r => r.hasErrors);
+        if (index != -1 && index < _rewardsCount)
         {
-            CreateAsset();
+            ChangeColorIfError(true,
+                () => EditorGUILayout.LabelField("Rewards have errors!\nLook at red labels.", GUILayout.Width(150), GUILayout.MaxHeight(30)));
+
+        }
+        else if (_rewardsCount == 0)
+        {
+            ChangeColorIfError(true,
+                () => EditorGUILayout.LabelField("No rewards in config.", GUILayout.Width(150)));
+        }
+        else
+        {
+            if (GUILayout.Button("Create Config", GUILayout.Width(150)))
+            {
+                CreateAsset();
+            }
         }
 
         EditorGUILayout.EndVertical();
@@ -72,27 +100,24 @@ public class ChestConfigEditor : EditorWindow
         _rewardsCount = EditorGUILayout.IntField(_rewardsCount);
         EditorGUILayout.EndHorizontal();
 
-        if (_rewardsCount > 0)
+        if (_rewardInfo.Count >= _rewardsCount)
         {
-            if (_rewardInfo.Count < _rewardsCount)
-            {
-                for (int i = _rewardInfo.Count - 1; i < _rewardsCount; i++)
-                {
-                    _rewardInfo.Add(new RewardToggleInfo() { reward = new ChestConfig.RewardInfo(), isExpanded = true });
-                }
-            }
-
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
             for (int i = 0; i < _rewardsCount; i++)
             {
-                _rewardInfo[i].isExpanded = EditorGUILayout.BeginFoldoutHeaderGroup(_rewardInfo[i].isExpanded, $"Reward {i + 1}");
+                var debugRewardInfo = _rewardInfo[i];
+                if (debugRewardInfo.hasErrors)
+                {
+                    GUI.contentColor = Color.red;
+                }
+                debugRewardInfo.isExpanded = EditorGUILayout.BeginFoldoutHeaderGroup(debugRewardInfo.isExpanded, $"Reward {i + 1}");
+                GUI.contentColor = Color.white;
 
-                if (_rewardInfo[i].isExpanded)
+                if (debugRewardInfo.isExpanded)
                 {
                     EditorGUI.indentLevel += 2;
-                    var reward = _rewardInfo[i].reward;
-                    DrawItem(reward);
+                    DrawItem(debugRewardInfo);
                     EditorGUI.indentLevel -= 2;
                 }
 
@@ -122,11 +147,15 @@ public class ChestConfigEditor : EditorWindow
         _rewardInfo.Clear();
     }
 
-    private void DrawItem(ChestConfig.RewardInfo reward)
+    private void DrawItem(RewardDebugInfo rewardDebugInfo)
     {
+        var reward = rewardDebugInfo.reward;
+
         EditorGUILayout.BeginHorizontal();
         SetLabel("Weight:");
-        reward.randomWeight = EditorGUILayout.Slider(reward.randomWeight, 0, 1);
+        ChangeColorIfError(rewardDebugInfo.errors.fstError,
+            () => reward.randomWeight = EditorGUILayout.Slider(reward.randomWeight, 0, 1));
+
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal();
@@ -140,62 +169,83 @@ public class ChestConfigEditor : EditorWindow
         {
             case ChestConfig.RewardType.Soft:
                 EditorGUILayout.BeginHorizontal();
-                SetLabel("Soft min:");
-                reward.softMin = EditorGUILayout.IntSlider(reward.softMin, 0, 1000, GUILayout.ExpandWidth(false));
-
-                SetLabel("Soft max:");
-                reward.softMax = EditorGUILayout.IntSlider(reward.softMax, reward.softMin, 1000);
+                ChangeColorIfError(rewardDebugInfo.errors.sndError, () => DrawSoftHardSliders(reward));
                 EditorGUILayout.EndHorizontal();
                 break;
             case ChestConfig.RewardType.Hard:
                 EditorGUILayout.BeginHorizontal();
-                SetLabel("Hard min:");
-                reward.hardMin = EditorGUILayout.Slider(reward.hardMin, 0, 1000);
-
-                SetLabel("Hard max:");
-                reward.hardMax = EditorGUILayout.Slider(reward.hardMax, reward.hardMin, 1000);
+                ChangeColorIfError(rewardDebugInfo.errors.sndError, () => DrawHardSliders(reward));
                 EditorGUILayout.EndHorizontal();
                 break;
             case ChestConfig.RewardType.Chest:
                 EditorGUILayout.BeginHorizontal();
                 SetLabel("Chest config:");
-
-                if (reward.chest == null)
-                {
-                    GUI.color = Color.red;
-                }
-
-                reward.chest = (ChestConfig)EditorGUILayout.ObjectField(reward.chest, typeof(ChestConfig), false);
-                GUI.color = Color.white;
-
+                ChangeColorIfError(rewardDebugInfo.errors.sndError,
+                    () => reward.chest = (ChestConfig)EditorGUILayout.ObjectField(reward.chest, typeof(ChestConfig), false));
                 EditorGUILayout.EndHorizontal();
 
                 EditorGUILayout.BeginHorizontal();
                 SetLabel("Chest count:");
-
-                if (reward.chestCount == 0)
-                {
-                    GUI.color = Color.red;
-                }
-
-                reward.chestCount = EditorGUILayout.IntField(reward.chestCount);
-                GUI.color = Color.white;
+                ChangeColorIfError(rewardDebugInfo.errors.trdError,
+                    () => reward.chestCount = EditorGUILayout.IntField(reward.chestCount));
                 EditorGUILayout.EndHorizontal();
                 break;
             default:
                 break;
         }
+
+        void DrawHardSliders(ChestConfig.RewardInfo reward)
+        {
+            SetLabel("Hard min:");
+            reward.hardMin = EditorGUILayout.Slider(reward.hardMin, 0, 1000);
+
+            SetLabel("Hard max:");
+            reward.hardMax = EditorGUILayout.Slider(reward.hardMax, reward.hardMin, 1000);
+        }
     }
 
-    private void HighlightError(bool isError, Action action)
+    private void DrawSoftHardSliders(ChestConfig.RewardInfo reward)
     {
-        if (isError)
+        SetLabel("Soft min:");
+        reward.softMin = EditorGUILayout.IntSlider(reward.softMin, 0, 1000);
+
+        SetLabel("Soft max:");
+        reward.softMax = EditorGUILayout.IntSlider(reward.softMax, reward.softMin, 1000);
+    }
+
+    private void FindErorrsInRewards()
+    {
+        for (int i = 0; i < _rewardsCount; i++)
         {
-            GUI.color = Color.red;
+            _rewardInfo[i].errors = FindErrors(_rewardInfo[i].reward);
+        }
+    }
+
+    private void ChangeColorIfError(bool hasError, Action drawGuiAction)
+    {
+        if (hasError)
+        {
+            GUI.contentColor = Color.red;
         }
 
-        action();
-        GUI.color = Color.white;
+        drawGuiAction();
+
+        GUI.contentColor = Color.white;
+    }
+
+    private (bool firstError, bool secondError, bool thirdError) FindErrors(ChestConfig.RewardInfo reward)
+    {
+        switch (reward.type)
+        {
+            case ChestConfig.RewardType.Soft:
+                return (reward.randomWeight == 0, reward.softMax == 0 && reward.softMin == 0, false); ;
+            case ChestConfig.RewardType.Hard:
+                return (reward.randomWeight == 0, reward.hardMax == 0 && reward.hardMin == 0, false); ;
+            case ChestConfig.RewardType.Chest:
+                return (reward.randomWeight == 0, reward.chest == null, reward.chestCount == 0);
+            default:
+                return (false, false, false);
+        }
     }
 
     private void SetLabel(string text)
@@ -203,9 +253,11 @@ public class ChestConfigEditor : EditorWindow
         EditorGUILayout.LabelField(text, GUILayout.MinWidth(10), GUILayout.ExpandWidth(false));
     }
 
-    private class RewardToggleInfo
+    private class RewardDebugInfo
     {
         public ChestConfig.RewardInfo reward;
+        public (bool fstError, bool sndError, bool trdError) errors;
         public bool isExpanded;
+        public bool hasErrors => errors != (false, false, false);
     }
 }
