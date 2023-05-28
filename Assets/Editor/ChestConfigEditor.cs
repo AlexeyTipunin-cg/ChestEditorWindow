@@ -16,7 +16,7 @@ public class ChestConfigEditor : EditorWindow
     private List<RewardDebugInfo> _rewardInfo;
     private Vector2 _scrollPos;
 
-    [MenuItem("Window/Chest config")]
+    [MenuItem("Assets/Configs/Chest config")]
     private static void OpenWindow()
     {
         ChestConfigEditor wnd = (ChestConfigEditor)GetWindow(typeof(ChestConfigEditor));
