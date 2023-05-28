@@ -15,7 +15,7 @@ public class ChestConfig : ScriptableObject
     [Serializable]
     public class RewardInfo
     {
-        public float randomWeight = 1;
+        public float randomWeight;
         public RewardType type;
         public int softMin;
         public int softMax;
